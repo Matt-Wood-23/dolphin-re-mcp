@@ -68,7 +68,7 @@ git clone https://github.com/<you>/dolphin-re-mcp
 cd dolphin-re-mcp
 python -m venv .venv
 .venv\Scripts\python.exe -m pip install -e ".[dev]"
-.venv\Scripts\python.exe -m pytest    # 117 tests, no Dolphin needed
+.venv\Scripts\python.exe -m pytest    # 129 tests, no Dolphin needed
 ```
 
 Linux/macOS: the GDB-stub backend works cross-platform; the process-attach
