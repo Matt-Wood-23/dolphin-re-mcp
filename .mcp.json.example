@@ -1,0 +1,24 @@
+{
+  "_comment": "Copy this file to .mcp.json and edit the paths for your machine. The ghidra block is optional — remove it if you're not using Ghidra.",
+  "mcpServers": {
+    "dolphin": {
+      "command": "C:\\path\\to\\dolphin_re_mcp\\.venv\\Scripts\\python.exe",
+      "args": ["-m", "dolphin_re_mcp.server"],
+      "cwd": "C:\\path\\to\\dolphin_re_mcp",
+      "env": {
+        "DOLPHIN_GDB_HOST": "localhost",
+        "DOLPHIN_GDB_PORT": "55432"
+      }
+    },
+    "ghidra": {
+      "command": "python",
+      "args": [
+        "C:\\path\\to\\ghidra-mcp\\bridge_mcp_ghidra.py",
+        "--no-lazy"
+      ],
+      "env": {
+        "GHIDRA_SERVER_URL": "http://127.0.0.1:8089/"
+      }
+    }
+  }
+}

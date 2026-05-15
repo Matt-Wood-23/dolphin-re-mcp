@@ -1,0 +1,35 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "dolphin-re-mcp"
+version = "0.1.0"
+description = "MCP server exposing Dolphin's GDB stub + process-attach memory for live reverse engineering"
+requires-python = ">=3.11"
+dependencies = [
+  "mcp[cli]>=1.0",
+  "capstone>=5.0",
+  "pymem>=1.13; sys_platform == 'win32'",
+  "psutil>=5.9",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0", "pytest-asyncio", "ruff"]
+
+[project.scripts]
+dolphin-re-mcp = "dolphin_re_mcp.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/dolphin_re_mcp"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+  "integration: requires a live Dolphin emulator on localhost:55432",
+]
+addopts = "-m 'not integration'"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"

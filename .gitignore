@@ -1,0 +1,46 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+build/
+dist/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.tox/
+.coverage
+.coverage.*
+htmlcov/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Project-local state
+.claude/
+CLAUDE.md
+BUILD_PLAN.md
+logs/
+*.log
+
+# Local launch/config (contain absolute paths; copy the .example instead)
+.mcp.json
+debugpath.txt
+
+# Save states / dumps / large binary artifacts
+*.sav
+*.raw
+*.bin
+dumps/
