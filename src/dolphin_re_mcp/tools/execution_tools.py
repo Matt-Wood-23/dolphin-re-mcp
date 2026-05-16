@@ -14,6 +14,7 @@ from ..gdb.registers import LR, PC, CTR, CR, MSR, XER, parse_fpr_value
 from ..gdb.stop_reply import parse_stop_reply
 from ..memory.routing import coerce_addr
 from ..session import SessionState, get_session
+from ..symbol_map import enrich as _sym_enrich
 
 log = logging.getLogger(__name__)
 
@@ -353,11 +354,29 @@ def _disasm_one_at(addr: int) -> dict | None:
 
 # ---- registration ----
 
+def _annotate(out: dict, key: str, addr_field: str) -> dict:
+    """If `out[addr_field]` resolves to a symbol, attach as `out[key]`."""
+    addr = out.get(addr_field)
+    if isinstance(addr, int):
+        sym = _sym_enrich(addr)
+        if sym is not None:
+            out[key] = sym["display"]
+    return out
+
+
 def register(mcp) -> None:
     @mcp.tool()
     def pause_tool() -> dict:
-        """Send Ctrl+C-style interrupt to Dolphin. Returns the stop reply."""
-        return pause()
+        """Send Ctrl+C-style interrupt to Dolphin. Returns the stop reply
+        with pc_symbol/sp_symbol added when those addresses resolve to
+        symbols from the loaded .map file."""
+        out = pause()
+        # `pause()` short-circuits with {already_paused, pc} where pc is an int.
+        if "pc" in out and isinstance(out["pc"], int):
+            _annotate(out, "pc_symbol", "pc")
+        if "sp" in out and isinstance(out["sp"], int):
+            _annotate(out, "sp_symbol", "sp")
+        return out
 
     @mcp.tool()
     def resume_tool() -> dict:
@@ -370,12 +389,24 @@ def register(mcp) -> None:
         return is_paused()
 
     @mcp.tool()
-    def get_pc_tool() -> int:
-        return get_pc()
+    def get_pc_tool() -> dict:
+        """Read PC. Returns {pc, pc_hex, pc_symbol?}."""
+        pc = get_pc()
+        out: dict = {"pc": pc, "pc_hex": f"0x{pc:08x}"}
+        sym = _sym_enrich(pc)
+        if sym is not None:
+            out["pc_symbol"] = sym["display"]
+        return out
 
     @mcp.tool()
-    def get_lr_tool() -> int:
-        return get_lr()
+    def get_lr_tool() -> dict:
+        """Read LR. Returns {lr, lr_hex, lr_symbol?}."""
+        lr = get_lr()
+        out: dict = {"lr": lr, "lr_hex": f"0x{lr:08x}"}
+        sym = _sym_enrich(lr)
+        if sym is not None:
+            out["lr_symbol"] = sym["display"]
+        return out
 
     @mcp.tool()
     def get_ctr_tool() -> int:
@@ -398,8 +429,17 @@ def register(mcp) -> None:
 
     @mcp.tool()
     def get_stack_tool(depth: int = 4) -> list:
-        """Walk PPC stack frames; returns [{frame_sp, saved_lr}, ...]."""
-        return get_stack(depth)
+        """Walk PPC stack frames; returns [{frame_sp, saved_lr, lr_symbol?},
+        ...]. `lr_symbol` is attached when the saved return address resolves
+        to a labeled function in the loaded .map file."""
+        frames = get_stack(depth)
+        for frame in frames:
+            saved_lr = frame.get("saved_lr")
+            if isinstance(saved_lr, int):
+                sym = _sym_enrich(saved_lr)
+                if sym is not None:
+                    frame["lr_symbol"] = sym["display"]
+        return frames
 
     @mcp.tool()
     def step_tool() -> dict:

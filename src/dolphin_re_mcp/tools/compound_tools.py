@@ -11,6 +11,7 @@ import time
 from typing import Any
 
 from ..memory.routing import coerce_addr
+from ..symbol_map import enrich as _sym_enrich
 from . import breakpoint_tools
 
 log = logging.getLogger(__name__)
@@ -147,6 +148,9 @@ def trace_until(
             except Exception:
                 pass
 
+        sym = _sym_enrich(pc)
+        if sym is not None:
+            entry["pc_symbol"] = sym["display"]
         timeline.append(entry)
 
         # Stop conditions evaluated AFTER recording — so the matching insn

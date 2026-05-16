@@ -60,6 +60,11 @@ can use any official Dolphin build.
   with stop conditions).
 - **Diagnostics** — `health_check` reports connection state, attach status,
   pending stop replies, and current PC.
+- **Symbol enrichment** — point `DOLPHIN_RE_MCP_SYMBOL_MAP` at a Dolphin
+  `.map` file and every tool response that surfaces an address also
+  surfaces its label (`pc_symbol`, `ea_symbol`, `lr_symbol`, disasm call-
+  target comments). `resolve_addr_tool` and `reload_symbol_map_tool` give
+  you ad-hoc lookups and a no-restart refresh path.
 
 ## Install
 
@@ -98,7 +103,8 @@ Full template:
       "cwd": "E:\\dolphin_re_mcp",
       "env": {
         "DOLPHIN_GDB_HOST": "localhost",
-        "DOLPHIN_GDB_PORT": "55432"
+        "DOLPHIN_GDB_PORT": "55432",
+        "DOLPHIN_RE_MCP_SYMBOL_MAP": "E:\\path\\to\\game.map"
       }
     },
     "ghidra": {
@@ -240,6 +246,7 @@ It's not destructive — the stub recovers cleanly when you resume.
 | `DOLPHIN_NO_AUTO_RESUME` | unset | If set, skip the auto-`c` after connect |
 | `MHTRI_DUMPS_DIR` | unset | Directory for `snapshot_to_dump` output |
 | `DOLPHIN_RE_MCP_LOG` | unset | If set, write structured logs to this path |
+| `DOLPHIN_RE_MCP_SYMBOL_MAP` | unset | Path to a Dolphin/CodeWarrior `.map` file. When set, every tool that surfaces an address also surfaces its symbol (e.g. `chacha_spawn_enter+0x4c`). When unset or pointing at a missing file, enrichment is a silent no-op. |
 
 ## Pairing with Ghidra
 

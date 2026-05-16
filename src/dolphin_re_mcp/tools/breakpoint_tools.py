@@ -26,6 +26,7 @@ from ..gdb.client import ConnectionLost, GDBStubError, StubWedged
 from ..gdb.stop_reply import parse_stop_reply
 from ..memory.routing import coerce_addr
 from ..session import BreakpointSpec, SessionState, get_session
+from ..symbol_map import enrich as _sym_enrich
 
 
 def _quiesce_for_modify(session) -> None:
@@ -308,7 +309,7 @@ def wait_for_hit(timeout_s: float = 30.0) -> dict[str, Any]:
         session.mark_paused()
 
     matched = _match_bp(parsed, session)
-    return {
+    out = {
         "raw": raw,
         "signal": parsed.signal,
         "pc": parsed.pc,
@@ -317,6 +318,42 @@ def wait_for_hit(timeout_s: float = 30.0) -> dict[str, Any]:
         "watch_addr": parsed.watch_addr,
         "matched_bp_id": matched,
     }
+    _annotate_hit(out)
+    return out
+
+
+def _annotate_hit(out: dict) -> None:
+    """Attach pc_symbol / ea_symbol when those addresses resolve."""
+    pc = out.get("pc")
+    if isinstance(pc, int):
+        s = _sym_enrich(pc)
+        if s is not None:
+            out["pc_symbol"] = s["display"]
+    wa = out.get("watch_addr")
+    if isinstance(wa, int):
+        s = _sym_enrich(wa)
+        if s is not None:
+            out["ea_symbol"] = s["display"]
+
+
+def _annotate_capture(entry: dict) -> dict:
+    """
+    Annotate an in-place capture-log dict: pc → pc_symbol, watch_addr →
+    ea_symbol, lr → lr_symbol, ea → ea_symbol (whichever are present).
+    Returns the same dict for chaining.
+    """
+    for addr_key, sym_key in (
+        ("pc", "pc_symbol"),
+        ("watch_addr", "ea_symbol"),
+        ("ea", "ea_symbol"),
+        ("lr", "lr_symbol"),
+    ):
+        v = entry.get(addr_key)
+        if isinstance(v, int):
+            s = _sym_enrich(v)
+            if s is not None:
+                entry[sym_key] = s["display"]
+    return entry
 
 
 def _match_bp(parsed, session) -> int | None:
@@ -445,7 +482,12 @@ def get_capture_log(
 
     if limit is not None and limit > 0:
         log_entries = log_entries[-limit:]
-    return log_entries
+    # Annotate copies — don't mutate stored captures (predicates re-run on
+    # the same log entries should see clean keys).
+    enriched: list[dict] = []
+    for e in log_entries:
+        enriched.append(_annotate_capture(dict(e)))
+    return enriched
 
 
 def clear_capture_log(bp_id: int) -> dict[str, Any]:

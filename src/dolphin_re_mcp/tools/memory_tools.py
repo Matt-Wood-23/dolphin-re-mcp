@@ -24,6 +24,7 @@ from ..memory.routing import (
     route,
 )
 from ..session import get_session
+from ..symbol_map import enrich as _sym_enrich, get_symbol_map
 
 log = logging.getLogger(__name__)
 
@@ -452,11 +453,10 @@ def register(mcp) -> None:
     @mcp.tool()
     def addr_info_tool(addr: int | str) -> dict:
         """
-        Conversion + range-check for an address. Accepts hex ("0x806adac4"),
-        decimal string, or int. Returns {decimal, hex, region, valid,
-        mem1_offset|mem2_offset}. Cheap, read-only — call this whenever you
-        need to convert between hex and decimal or verify an address lies in
-        MEM1/MEM2 before passing it to read_*/disasm tools.
+        Conversion + range-check for an address, plus symbol lookup. Accepts
+        hex ("0x806adac4"), decimal string, or int. Returns {decimal, hex,
+        region, valid, mem1_offset|mem2_offset, symbol?}. Cheap, read-only —
+        the canonical "what is this address" tool.
         """
         n = coerce_addr(addr)
         out: dict = {"decimal": n, "hex": f"0x{n:08x}"}
@@ -471,4 +471,49 @@ def register(mcp) -> None:
         except (AddressOutOfRange, ValueError):
             out["region"] = None
             out["valid"] = False
+        sym = _sym_enrich(n)
+        if sym is not None:
+            out["symbol"] = sym
         return out
+
+    @mcp.tool()
+    def resolve_addr_tool(addr: int | str) -> dict:
+        """
+        Resolve `addr` ("0x..." or decimal string) to its enclosing symbol
+        from the loaded .map file. Returns {address, name, symbol_address,
+        offset_in_symbol, display} for a hit, or {address, name: null} when
+        no symbol contains the address (or no map is loaded).
+        """
+        try:
+            n = coerce_addr(addr)
+        except (ValueError, TypeError) as e:
+            return {"error": "invalid address", "input": addr, "detail": str(e)}
+        sym = _sym_enrich(n)
+        if sym is None:
+            return {"address": f"0x{n:08x}", "name": None}
+        return sym
+
+    @mcp.tool()
+    def reload_symbol_map_tool(path: str | None = None) -> dict:
+        """
+        Reparse the symbol map. With no `path`, uses
+        $DOLPHIN_RE_MCP_SYMBOL_MAP. Returns {loaded: N, path: str, skipped:
+        N}. Use after exporting a fresh map from Ghidra so enrichment picks
+        up new symbols without restarting the MCP.
+        """
+        import os as _os
+
+        sm = get_symbol_map()
+        target = path or _os.environ.get("DOLPHIN_RE_MCP_SYMBOL_MAP")
+        if not target:
+            return {"loaded": 0, "path": None, "error": "no path provided and DOLPHIN_RE_MCP_SYMBOL_MAP unset"}
+        from pathlib import Path as _Path
+        p = _Path(target)
+        if not p.exists():
+            return {"loaded": 0, "path": str(p), "error": "file does not exist"}
+        try:
+            n = sm.load(p)
+        except OSError as e:
+            return {"loaded": 0, "path": str(p), "error": f"read failed: {e}"}
+        log.info("reload_symbol_map_tool: loaded %d symbols from %s", n, p)
+        return {"loaded": n, "path": str(p), "skipped": sm._skipped}

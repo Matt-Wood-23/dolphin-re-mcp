@@ -12,6 +12,7 @@ from typing import Any
 from ..disasm.ppc import disasm_bytes, post_process_imm_load_pairs
 from ..memory.routing import coerce_addr
 from ..session import get_session
+from ..symbol_map import enrich as _sym_enrich
 
 log = logging.getLogger(__name__)
 
@@ -40,7 +41,34 @@ def disasm(addr: int, count: int = 1, with_gprs: bool = False) -> list[dict]:
             log.debug("disasm: could not read gprs (continuing without): %s", e)
     insns = disasm_bytes(addr, blob, gprs=gprs)
     post_process_imm_load_pairs(insns)
-    return [i.to_dict() for i in insns]
+    out = [i.to_dict() for i in insns]
+    _annotate_targets(out)
+    return out
+
+
+def _annotate_targets(insns: list[dict]) -> None:
+    """
+    Attach a `comment` field naming the symbol that a labeled target resolves
+    to. Sources of "target" we consider:
+      - branch_target: bl/b/bne/etc. to a known address
+      - imm_value:     lis+addi/ori pair fused into a 32-bit constant
+      - ea:            load/store effective address (only when gprs were
+                       supplied at disasm time)
+    `branch_target` is preferred; otherwise we fall back to ea/imm_value.
+    Lines without a labeled target are left untouched.
+    """
+    for ins in insns:
+        target: int | None = None
+        for key in ("branch_target", "imm_value", "ea"):
+            v = ins.get(key)
+            if isinstance(v, int):
+                target = v
+                break
+        if target is None:
+            continue
+        sym = _sym_enrich(target)
+        if sym is not None:
+            ins["comment"] = f"-> {sym['display']}"
 
 
 def register(mcp) -> None:

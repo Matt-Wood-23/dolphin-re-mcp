@@ -13,6 +13,7 @@ import logging
 from mcp.server.fastmcp import FastMCP
 
 from .logging_setup import setup_logging
+from .symbol_map import load_from_env as load_symbol_map_from_env
 from .tools import register_all
 
 log = logging.getLogger(__name__)
@@ -20,6 +21,7 @@ log = logging.getLogger(__name__)
 
 def build_mcp() -> FastMCP:
     setup_logging()
+    load_symbol_map_from_env()
     mcp = FastMCP("dolphin-re-mcp")
     register_all(mcp)
     log.info("FastMCP built; tools registered")
