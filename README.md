@@ -193,13 +193,18 @@ These are the things that surprise people. Read once.
 
 ## Roadmap (in progress)
 
+Recently shipped:
+
+- [x] **Eager auto-connect** (2026-05-16). The MCP no longer waits for the
+  first tool call to dial Dolphin's GDB stub — a background worker
+  ([`auto_connect.py`](src/dolphin_re_mcp/auto_connect.py)) polls every
+  0.5s with geometric backoff to 5s, and the moment Dolphin becomes
+  reachable it connects + auto-resumes. Fixes the "load game in Dolphin
+  → CPU frozen at stub boot-halt → UI looks fine but emulator is dead"
+  failure mode. Disable with `DOLPHIN_NO_BG_CONNECT=1`.
+
 Open work items, roughly ordered by likelihood we'll do them:
 
-- **Eager auto-connect.** Right now the MCP doesn't dial Dolphin's GDB
-  socket until the first tool call. Plan: small background task in
-  `session.py` that retries the connect on a loop after MCP startup, so the
-  moment Dolphin appears on the port we attach + auto-resume — no need to
-  poke the agent to start the game.
 - **`arm_at_boot_tool`.** Single MCP call that halts the CPU, arms a list
   of breakpoints / watchpoints, and resumes — replacing the
   `DOLPHIN_NO_AUTO_RESUME=1` escape hatch for the common "I want to catch
@@ -244,6 +249,7 @@ It's not destructive — the stub recovers cleanly when you resume.
 | `DOLPHIN_GDB_HOST` | `localhost` | GDB stub host |
 | `DOLPHIN_GDB_PORT` | `55432` | GDB stub port |
 | `DOLPHIN_NO_AUTO_RESUME` | unset | If set, skip the auto-`c` after connect |
+| `DOLPHIN_NO_BG_CONNECT` | unset | If set, skip the background auto-connect worker (manual connect only — every tool call still lazy-connects) |
 | `MHTRI_DUMPS_DIR` | unset | Directory for `snapshot_to_dump` output |
 | `DOLPHIN_RE_MCP_LOG` | unset | If set, write structured logs to this path |
 | `DOLPHIN_RE_MCP_SYMBOL_MAP` | unset | Path to a Dolphin/CodeWarrior `.map` file. When set, every tool that surfaces an address also surfaces its symbol (e.g. `chacha_spawn_enter+0x4c`). When unset or pointing at a missing file, enrichment is a silent no-op. |

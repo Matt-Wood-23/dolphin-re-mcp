@@ -12,6 +12,7 @@ import logging
 
 from mcp.server.fastmcp import FastMCP
 
+from .auto_connect import start as start_auto_connect
 from .logging_setup import setup_logging
 from .symbol_map import load_from_env as load_symbol_map_from_env
 from .tools import register_all
@@ -24,6 +25,7 @@ def build_mcp() -> FastMCP:
     load_symbol_map_from_env()
     mcp = FastMCP("dolphin-re-mcp")
     register_all(mcp)
+    start_auto_connect()
     log.info("FastMCP built; tools registered")
     return mcp
 
